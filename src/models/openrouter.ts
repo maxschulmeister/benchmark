@@ -2,6 +2,8 @@ import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 import { Usage } from '../types';
+import { encodeImageToBase64 } from '../utils/base64';
+import { resolvePath } from '../utils/path';
 import { ModelProvider } from './base';
 import { calculateTokenCost, OCR_SYSTEM_PROMPT } from './shared';
 
@@ -33,12 +35,20 @@ export class OpenRouterProvider extends ModelProvider {
   }> {
     const start = performance.now();
 
+    const image = imagePath.startsWith('http')
+      ? imagePath
+      : await encodeImageToBase64(resolvePath(imagePath));
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'user',
         content: [
           { type: 'text', text: OCR_SYSTEM_PROMPT },
-          { type: 'image_url', image_url: { url: imagePath } },
+          {
+            type: 'image_url',
+            image_url: {
+              url: image,
+            },
+          },
         ],
       },
     ];
@@ -129,10 +139,20 @@ export class OpenRouterProvider extends ModelProvider {
     usage: Usage;
   }> {
     const start = performance.now();
+    const image = imagePath.startsWith('http')
+      ? imagePath
+      : await encodeImageToBase64(resolvePath(imagePath));
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'user',
-        content: [{ type: 'image_url' as const, image_url: { url: imagePath } }] as any,
+        content: [
+          {
+            type: 'image_url' as const,
+            image_url: {
+              url: image,
+            },
+          },
+        ] as any,
       },
     ];
     const response = await this.client.chat.completions.create({
