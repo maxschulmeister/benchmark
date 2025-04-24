@@ -1,24 +1,59 @@
 import { zerox } from 'zerox';
-
+import {
+  ZeroxArgs,
+  ModelProvider as ZeroxModelProvider,
+} from 'zerox/node-zerox/dist/types';
+import { Usage } from '../types';
 import { ModelProvider } from './base';
-import { calculateTokenCost } from './shared';
-
+import {
+  calculateTokenCost,
+  IMAGE_EXTRACTION_SYSTEM_PROMPT,
+  JSON_EXTRACTION_SYSTEM_PROMPT,
+  OCR_SYSTEM_PROMPT,
+} from './shared';
 export class ZeroxProvider extends ModelProvider {
-  constructor() {
-    super('zerox');
+  private zeroxArgs: Omit<ZeroxArgs, 'filePath'>;
+  private apiKey: string;
+  constructor(model: string) {
+    super(model);
+
+    this.apiKey = process.env.OPENROUTER_API_KEY;
+    if (!this.apiKey) throw new Error('OPENROUTER_API_KEY is not set in environment');
+
+    this.zeroxArgs = {
+      credentials: {
+        apiKey: this.apiKey,
+      },
+      modelProvider: ZeroxModelProvider.OPENROUTER,
+      model: this.model.replace('zerox:', ''),
+      maxRetries: 3,
+      llmParams: {
+        temperature: 0,
+      },
+      prompt: OCR_SYSTEM_PROMPT,
+    };
   }
 
-  async ocr(imagePath: string) {
+  async extractFromText(
+    text: string,
+    schema: any,
+    imageBase64s?: string[],
+    imagePath?: string,
+  ): Promise<{
+    json: Record<string, any>;
+    usage: Usage;
+  }> {
     const startTime = performance.now();
 
     const result = await zerox({
+      ...this.zeroxArgs,
       filePath: imagePath,
-      openaiAPIKey: process.env.OPENAI_API_KEY,
+      directImageExtraction: true,
+      schema,
+      extractionPrompt: JSON_EXTRACTION_SYSTEM_PROMPT,
     });
 
     const endTime = performance.now();
-
-    const text = result.pages.map((page) => page.content).join('\n');
 
     const inputCost = calculateTokenCost(this.model, 'input', result.inputTokens);
     const outputCost = calculateTokenCost(this.model, 'output', result.outputTokens);
@@ -32,9 +67,45 @@ export class ZeroxProvider extends ModelProvider {
       outputCost,
       totalCost: inputCost + outputCost,
     };
-
     return {
-      text,
+      json: result.extracted,
+      usage,
+    };
+  }
+
+  async extractFromImage(
+    imagePath: string,
+    schema: any,
+  ): Promise<{
+    json: Record<string, unknown> | null;
+    usage: Usage;
+  }> {
+    const startTime = performance.now();
+
+    const result = await zerox({
+      ...this.zeroxArgs,
+      filePath: imagePath,
+      directImageExtraction: true,
+      schema,
+      extractionPrompt: IMAGE_EXTRACTION_SYSTEM_PROMPT,
+    });
+
+    const endTime = performance.now();
+
+    const inputCost = calculateTokenCost(this.model, 'input', result.inputTokens);
+    const outputCost = calculateTokenCost(this.model, 'output', result.outputTokens);
+
+    const usage = {
+      duration: endTime - startTime,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      totalTokens: result.inputTokens + result.outputTokens,
+      inputCost,
+      outputCost,
+      totalCost: inputCost + outputCost,
+    };
+    return {
+      json: result.extracted,
       usage,
     };
   }

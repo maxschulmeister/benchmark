@@ -1,5 +1,5 @@
-import { AzureDocumentIntelligenceProvider } from './azure';
 import { AWSTextractProvider } from './awsTextract';
+import { AzureDocumentIntelligenceProvider } from './azure';
 import { DashscopeProvider } from './dashscope';
 import { GeminiProvider } from './gemini';
 import { GoogleDocumentAIProvider } from './googleDocumentAI';
@@ -51,10 +51,15 @@ export const GOOGLE_GENERATIVE_AI_MODELS = [
 export const OPENROUTER_MODELS = [
   'qwen/qwen2.5-vl-32b-instruct:free',
   'qwen/qwen-2.5-vl-72b-instruct',
-  // 'google/gemma-3-27b-it',
   'deepseek/deepseek-chat-v3-0324',
   'meta-llama/llama-3.2-11b-vision-instruct',
   'meta-llama/llama-3.2-90b-vision-instruct',
+  'meta-llama/llama-4-maverick',
+  'meta-llama/llama-4-scout',
+  'openai/gpt-4.1',
+  'openai/o4-mini-high',
+  'google/gemini-2.5-pro-preview-03-25',
+  'openai/gpt-4o-2024-11-20',
 ];
 export const TOGETHER_MODELS = [
   'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
@@ -126,7 +131,7 @@ export const MODEL_PROVIDERS = {
     provider: UnstructuredProvider,
   },
   zerox: {
-    models: ['zerox'],
+    models: [...OPENROUTER_MODELS.map((model) => `zerox:${model}`)],
     provider: ZeroxProvider,
   },
   groundTruth: {

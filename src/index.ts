@@ -1,24 +1,24 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import moment from 'moment';
 import cliProgress from 'cli-progress';
-import { isEmpty } from 'lodash';
-import pLimit from 'p-limit';
-import yaml from 'js-yaml';
+import dotenv from 'dotenv';
 import fs from 'fs';
+import yaml from 'js-yaml';
+import { isEmpty } from 'lodash';
+import moment from 'moment';
+import pLimit from 'p-limit';
+import path from 'path';
 
 import { BenchmarkRun } from '@prisma/client';
 import { calculateJsonAccuracy, calculateTextSimilarity } from './evaluation';
 import { getModelProvider } from './models';
 import { Result } from './types';
 import {
-  createResultFolder,
-  loadLocalData,
-  writeToFile,
-  loadFromDb,
-  createBenchmarkRun,
-  saveResult,
   completeBenchmarkRun,
+  createBenchmarkRun,
+  createResultFolder,
+  loadFromDb,
+  loadLocalData,
+  saveResult,
+  writeToFile,
 } from './utils';
 
 dotenv.config();
@@ -164,6 +164,7 @@ const runBenchmark = async () => {
             usage: undefined,
           };
 
+          const isZerox = ocrModelProvider?.model.includes('zerox:');
           try {
             if (directImageExtraction) {
               const extractionResult = await withTimeout(
@@ -181,7 +182,7 @@ const runBenchmark = async () => {
               if (ocrModel === 'ground-truth') {
                 result.predictedMarkdown = item.trueMarkdownOutput;
               } else {
-                if (ocrModelProvider) {
+                if (ocrModelProvider && !isZerox) {
                   ocrResult = await withTimeout(
                     ocrModelProvider.ocr(item.imageUrl),
                     `OCR: ${ocrModel}`,
@@ -202,6 +203,7 @@ const runBenchmark = async () => {
                     result.predictedMarkdown,
                     item.jsonSchema,
                     ocrResult?.imageBase64s,
+                    isZerox ? item.imageUrl : undefined,
                   ),
                   `JSON extraction: ${extractionModel}`,
                 );

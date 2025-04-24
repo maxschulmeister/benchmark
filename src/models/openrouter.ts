@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
-import { ModelProvider } from './base';
 import { Usage } from '../types';
+import { ModelProvider } from './base';
 import { calculateTokenCost, OCR_SYSTEM_PROMPT } from './shared';
 
 export class OpenRouterProvider extends ModelProvider {
@@ -57,6 +57,101 @@ export class OpenRouterProvider extends ModelProvider {
 
     return {
       text: response.choices[0].message.content || '',
+      usage: {
+        duration: end - start,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        inputCost,
+        outputCost,
+        totalCost: inputCost + outputCost,
+      },
+    };
+  }
+
+  async extractFromText(
+    text: string,
+    schema: any,
+    imageBase64s?: string[],
+  ): Promise<{
+    json: Record<string, any>;
+    usage: Usage;
+  }> {
+    const start = performance.now();
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text } as const,
+          ...(imageBase64s
+            ? imageBase64s.map((base64) => ({
+                type: 'image_url' as const,
+                image_url: { url: base64 },
+              }))
+            : []),
+        ] as any,
+      },
+    ];
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages,
+    });
+    const end = performance.now();
+    const inputTokens = response.usage?.prompt_tokens || 0;
+    const outputTokens = response.usage?.completion_tokens || 0;
+    const inputCost = calculateTokenCost(this.model, 'input', inputTokens);
+    const outputCost = calculateTokenCost(this.model, 'output', outputTokens);
+    let json;
+    try {
+      json = JSON.parse(response.choices[0].message.content || '{}');
+    } catch {
+      json = response.choices[0].message.content || '';
+    }
+    return {
+      json,
+      usage: {
+        duration: end - start,
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        inputCost,
+        outputCost,
+        totalCost: inputCost + outputCost,
+      },
+    };
+  }
+
+  async extractFromImage(
+    imagePath: string,
+    schema: any,
+  ): Promise<{
+    json: Record<string, any>;
+    usage: Usage;
+  }> {
+    const start = performance.now();
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: 'user',
+        content: [{ type: 'image_url' as const, image_url: { url: imagePath } }] as any,
+      },
+    ];
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages,
+    });
+    const end = performance.now();
+    const inputTokens = response.usage?.prompt_tokens || 0;
+    const outputTokens = response.usage?.completion_tokens || 0;
+    const inputCost = calculateTokenCost(this.model, 'input', inputTokens);
+    const outputCost = calculateTokenCost(this.model, 'output', outputTokens);
+    let json;
+    try {
+      json = JSON.parse(response.choices[0].message.content || '{}');
+    } catch {
+      json = response.choices[0].message.content || '';
+    }
+    return {
+      json,
       usage: {
         duration: end - start,
         inputTokens,
