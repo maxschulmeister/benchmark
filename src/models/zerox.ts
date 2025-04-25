@@ -4,6 +4,7 @@ import {
   ModelProvider as ZeroxModelProvider,
 } from 'zerox/node-zerox/dist/types';
 import { Usage } from '../types';
+import { resolvePath } from '../utils/path';
 import { ModelProvider } from './base';
 import {
   calculateTokenCost,
@@ -11,6 +12,7 @@ import {
   JSON_EXTRACTION_SYSTEM_PROMPT,
   OCR_SYSTEM_PROMPT,
 } from './shared';
+
 export class ZeroxProvider extends ModelProvider {
   private zeroxArgs: Omit<ZeroxArgs, 'filePath'>;
   private apiKey: string;
@@ -40,6 +42,7 @@ export class ZeroxProvider extends ModelProvider {
     imageBase64s?: string[],
     imagePath?: string,
   ): Promise<{
+    text: string;
     json: Record<string, any>;
     usage: Usage;
   }> {
@@ -47,7 +50,7 @@ export class ZeroxProvider extends ModelProvider {
 
     const result = await zerox({
       ...this.zeroxArgs,
-      filePath: imagePath,
+      filePath: resolvePath(imagePath),
       directImageExtraction: true,
       schema,
       extractionPrompt: JSON_EXTRACTION_SYSTEM_PROMPT,
@@ -68,6 +71,10 @@ export class ZeroxProvider extends ModelProvider {
       totalCost: inputCost + outputCost,
     };
     return {
+      text: result.pages
+        .map((page) => page.content || '')
+        .filter(Boolean)
+        .join('\n\n'),
       json: result.extracted,
       usage,
     };
@@ -77,6 +84,7 @@ export class ZeroxProvider extends ModelProvider {
     imagePath: string,
     schema: any,
   ): Promise<{
+    text: string;
     json: Record<string, unknown> | null;
     usage: Usage;
   }> {
@@ -84,7 +92,7 @@ export class ZeroxProvider extends ModelProvider {
 
     const result = await zerox({
       ...this.zeroxArgs,
-      filePath: imagePath,
+      filePath: resolvePath(imagePath),
       directImageExtraction: true,
       schema,
       extractionPrompt: IMAGE_EXTRACTION_SYSTEM_PROMPT,
@@ -105,6 +113,10 @@ export class ZeroxProvider extends ModelProvider {
       totalCost: inputCost + outputCost,
     };
     return {
+      text: result.pages
+        .map((page) => page.content || '')
+        .filter(Boolean)
+        .join('\n\n'),
       json: result.extracted,
       usage,
     };

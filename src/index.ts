@@ -207,6 +207,9 @@ const runBenchmark = async () => {
                   ),
                   `JSON extraction: ${extractionModel}`,
                 );
+                if (extractionResult.text) {
+                  result.predictedMarkdown = extractionResult.text;
+                }
                 result.predictedJson = extractionResult.json;
 
                 const mergeUsage = (base: any, additional: any) => ({

@@ -2,10 +2,16 @@ import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 import { Usage } from '../types';
-import { encodeImageToBase64 } from '../utils/base64';
+import { encodeImageToBase64 } from '../utils/file';
 import { resolvePath } from '../utils/path';
+import { convertToOpenAIStrictSchema } from '../utils/schema';
 import { ModelProvider } from './base';
-import { calculateTokenCost, OCR_SYSTEM_PROMPT } from './shared';
+import {
+  calculateTokenCost,
+  IMAGE_EXTRACTION_SYSTEM_PROMPT,
+  JSON_EXTRACTION_SYSTEM_PROMPT,
+  OCR_SYSTEM_PROMPT,
+} from './shared';
 
 export class OpenRouterProvider extends ModelProvider {
   private client: OpenAI;
@@ -38,6 +44,7 @@ export class OpenRouterProvider extends ModelProvider {
     const image = imagePath.startsWith('http')
       ? imagePath
       : await encodeImageToBase64(resolvePath(imagePath));
+
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'user',
@@ -88,24 +95,37 @@ export class OpenRouterProvider extends ModelProvider {
     usage: Usage;
   }> {
     const start = performance.now();
+
+    let imageMessages = [];
+    if (imageBase64s && imageBase64s?.length > 0) {
+      imageMessages = imageBase64s.map((base64) => ({
+        type: 'image_url' as const,
+        image_url: { url: base64 },
+      }));
+    }
     const messages: ChatCompletionMessageParam[] = [
+      { role: 'system', content: JSON_EXTRACTION_SYSTEM_PROMPT },
       {
         role: 'user',
-        content: [
-          { type: 'text', text } as const,
-          ...(imageBase64s
-            ? imageBase64s.map((base64) => ({
-                type: 'image_url' as const,
-                image_url: { url: base64 },
-              }))
-            : []),
-        ] as any,
+        content: [{ type: 'text', text } as const, ...imageMessages],
       },
     ];
+
+    const strictSchema = convertToOpenAIStrictSchema(schema);
+
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'extraction',
+          strict: true,
+          schema: strictSchema,
+        },
+      },
     });
+
     const end = performance.now();
     const inputTokens = response.usage?.prompt_tokens || 0;
     const outputTokens = response.usage?.completion_tokens || 0;
@@ -144,6 +164,10 @@ export class OpenRouterProvider extends ModelProvider {
       : await encodeImageToBase64(resolvePath(imagePath));
     const messages: ChatCompletionMessageParam[] = [
       {
+        role: 'system',
+        content: OCR_SYSTEM_PROMPT + '\n\n' + IMAGE_EXTRACTION_SYSTEM_PROMPT,
+      },
+      {
         role: 'user',
         content: [
           {
@@ -152,13 +176,25 @@ export class OpenRouterProvider extends ModelProvider {
               url: image,
             },
           },
-        ] as any,
+        ],
       },
     ];
+
+    const strictSchema = convertToOpenAIStrictSchema(schema);
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'extraction',
+          strict: true,
+          schema: strictSchema,
+        },
+      },
     });
+
+    console.log(response);
     const end = performance.now();
     const inputTokens = response.usage?.prompt_tokens || 0;
     const outputTokens = response.usage?.completion_tokens || 0;

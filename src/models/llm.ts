@@ -1,34 +1,34 @@
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createAzure } from '@ai-sdk/azure';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import {
-  generateText,
-  generateObject,
   CoreMessage,
   CoreUserMessage,
+  generateObject,
+  generateText,
   NoObjectGeneratedError,
 } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createDeepSeek } from '@ai-sdk/deepseek';
-import { createAzure } from '@ai-sdk/azure';
 
-import { ExtractionResult, JsonSchema } from '../types';
-import { generateZodSchema, writeResultToFile } from '../utils';
-import { calculateTokenCost } from './shared';
+import { JsonSchema } from '../types';
+import { generateZodSchema } from '../utils';
+import { resolvePath } from '../utils/path';
 import { ModelProvider } from './base';
 import {
-  OCR_SYSTEM_PROMPT,
-  JSON_EXTRACTION_SYSTEM_PROMPT,
-  IMAGE_EXTRACTION_SYSTEM_PROMPT,
-} from './shared';
-import {
-  OPENAI_MODELS,
   ANTHROPIC_MODELS,
-  GOOGLE_GENERATIVE_AI_MODELS,
-  FINETUNED_MODELS,
-  DEEPSEEK_MODELS,
   AZURE_OPENAI_MODELS,
+  DEEPSEEK_MODELS,
+  FINETUNED_MODELS,
+  GOOGLE_GENERATIVE_AI_MODELS,
+  OPENAI_MODELS,
 } from './registry';
-
+import {
+  calculateTokenCost,
+  IMAGE_EXTRACTION_SYSTEM_PROMPT,
+  JSON_EXTRACTION_SYSTEM_PROMPT,
+  OCR_SYSTEM_PROMPT,
+} from './shared';
 export const createModelProvider = (model: string) => {
   if (OPENAI_MODELS.includes(model)) {
     return createOpenAI({
@@ -54,6 +54,7 @@ export const createModelProvider = (model: string) => {
   if (DEEPSEEK_MODELS.includes(model)) {
     return createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY });
   }
+
   throw new Error(`Model '${model}' does not support image inputs`);
 };
 
@@ -75,14 +76,14 @@ export class LLMProvider extends ModelProvider {
       content: [
         {
           type: 'image',
-          image: imagePath,
+          image: resolvePath(imagePath),
         },
       ],
     };
 
     if (ANTHROPIC_MODELS.includes(this.model)) {
       // read image and convert to base64
-      const response = await fetch(imagePath);
+      const response = await fetch(resolvePath(imagePath));
       const imageBuffer = await response.arrayBuffer();
       const base64Image = Buffer.from(imageBuffer).toString('base64');
       imageMessage.content = [
@@ -102,7 +103,7 @@ export class LLMProvider extends ModelProvider {
         },
         {
           type: 'file',
-          data: imagePath,
+          data: resolvePath(imagePath),
           mimeType: 'image/png',
         },
       ];
@@ -225,14 +226,14 @@ export class LLMProvider extends ModelProvider {
       content: [
         {
           type: 'image',
-          image: imagePath,
+          image: resolvePath(imagePath),
         },
       ],
     };
 
     if (ANTHROPIC_MODELS.includes(this.model)) {
       // read image and convert to base64
-      const response = await fetch(imagePath);
+      const response = await fetch(resolvePath(imagePath));
       const imageBuffer = await response.arrayBuffer();
       const base64Image = Buffer.from(imageBuffer).toString('base64');
       imageMessage.content = [
@@ -252,7 +253,7 @@ export class LLMProvider extends ModelProvider {
         },
         {
           type: 'file',
-          data: imagePath,
+          data: resolvePath(imagePath),
           mimeType: 'image/png',
         },
       ];
