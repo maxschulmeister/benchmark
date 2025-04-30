@@ -1,0 +1,194 @@
+zerox:google/gemini-2.5-flash-preview:thinking:
+
+Schema:
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Booking title. Concise, meaningful, and human-readable. Should summarize the vendor and the items on the invoice. If possible, group items using a generic term (e.g., 'Office Supplies', 'Travel Expenses', 'Meals', 'Subscriptions', etc.). Do not include data used for other fields."
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Booking date in YYYY-MM-DD format. If not present, leave as an empty string."
+    },
+    "amounts": {
+      "type": "array",
+      "description": "Array of line items for the booking. Group items with identical costaccount, purchasetaxaccount, and tax_percent combinations into a single entry, summing their amounts. Only create multiple amounts if these key fields differ. If all line items share the same combination, create just one entry with the total invoice sum.",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "string",
+            "description": "Gross amount for this line item, as a string (e.g., '2400.00').\n  **IMPORTANT:** If the currency is not Euro, set the amount to 999.99"
+          },
+          "costaccount": {
+            "type": "integer",
+            "description": "ID of the cost account. Match the line item description to the most relevant account name in the provided mapping (e.g., for a mobile phone plan, select the account with 'Telefon' or 'Mobile' in its name). Only allowed purchasetaxaccounts for the selected costaccount may be used, as per the mapping."
+          },
+          "bankaccount": {
+            "type": "integer",
+            "description": "ID of the payment account. Select the most appropriate account using the provided mapping and payment details."
+          },
+          "purchasetaxaccount": {
+            "type": "integer",
+            "description": "ID of the purchase tax account. Must be one of the allowed purchasetaxaccounts for the selected costaccount, as per the mapping. If in doubt, leave this field null or empty.\n  **IMPORTANT:** For each line item, only use a purchasetaxaccount that is listed as allowed for the selected costaccount (see mapping below). Do not invent or guess purchasetaxaccounts that are not explicitly allowed for the chosen costaccount. Never select a purchasetaxaccount that is not allowed for the selected costaccount. If in doubt, leave the purchasetaxaccount field empty or null.\n  "
+          },
+          "tax_percent": {
+            "type": "string",
+            "description": "VAT percentage for this line item (e.g., '20.00'). **IMPORTANT:** For each line item, only use a tax_percent value that is listed as allowed for the selected purchasetaxaccount (see mapping below). Do not invent or guess tax_percent values that are not explicitly allowed for the chosen account."
+          },
+          "deductibility_tax_percent": {
+            "type": "string",
+            "description": "Deductible portion of VAT in percent (default: '100.00')."
+          },
+          "deductibility_amount_percent": {
+            "type": "string",
+            "description": "Deductible portion of the net amount in percent (default: '100.00'). If the invoice is a business lunch (restaurant, cafe, etc.), set to '50.00'."
+          },
+          "foreign_business_base": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "ID of the foreign business unit, if applicable."
+          },
+          "country_dep": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Country of departure (ISO 3166-1 alpha-2 code), if applicable."
+          },
+          "country_rec": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Country of consumption (ISO 3166-1 alpha-2 code), if applicable."
+          }
+        },
+        "required": [
+          "amount",
+          "costaccount",
+          "bankaccount",
+          "purchasetaxaccount",
+          "tax_percent",
+          "deductibility_tax_percent",
+          "deductibility_amount_percent"
+        ]
+      }
+    },
+    "date_invoice": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "Invoice date, if present."
+    },
+    "date_delivery": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "Delivery date, if present. If not present, use date_invoice."
+    },
+    "date_order": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "Order date, if present. If not present, use date_invoice."
+    },
+    "costcentre": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "ID of the cost center, if present."
+    },
+    "vatin": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "VAT identification number, if present."
+    },
+    "country": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Country (ISO 3166-1 alpha-2 code), if present."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Description, **IMPORTANT**: Don't write a general description here. Only insert the invoice number if present on the document. If no invoice number is found, leave this field blank."
+    },
+    "foreign_business_base": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "ID of the foreign business unit, if applicable."
+    },
+    "country_dep": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Country of departure (ISO 3166-1 alpha-2 code), if applicable."
+    },
+    "country_rec": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Country of consumption (ISO 3166-1 alpha-2 code), if applicable."
+    }
+  },
+  "required": [
+    "title",
+    "date",
+    "amounts"
+  ],
+  "additionalProperties": false
+}
+
+Extracted Result:
+{
+  "title": "OpenRouter Credits",
+  "date": "2025-04-23",
+  "amounts": [
+    {
+      "amount": "999.99",
+      "costaccount": 23091,
+      "bankaccount": 2641,
+      "purchasetaxaccount": 5461,
+      "tax_percent": "0.00",
+      "deductibility_tax_percent": "100.00",
+      "deductibility_amount_percent": "100.00",
+      "foreign_business_base": null,
+      "country_dep": null,
+      "country_rec": "AT"
+    }
+  ],
+  "date_invoice": "2025-04-23",
+  "date_delivery": "2025-04-23",
+  "date_order": "2025-04-23",
+  "costcentre": null,
+  "vatin": null,
+  "country": "US",
+  "description": "8EAAFD36-0003",
+  "foreign_business_base": null,
+  "country_dep": null,
+  "country_rec": "AT"
+}

@@ -2,10 +2,12 @@ import { JsonSchema, Usage } from '../types';
 
 export class ModelProvider {
   model: string;
+  extractionModel?: string;
   outputDir?: string;
 
-  constructor(model: string, outputDir?: string) {
+  constructor(model: string, extractionModel?: string, outputDir?: string) {
     this.model = model;
+    this.extractionModel = extractionModel;
     this.outputDir = outputDir;
   }
 

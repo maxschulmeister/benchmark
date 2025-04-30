@@ -4,7 +4,7 @@ import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { Usage } from '../types';
 import { encodeImageToBase64 } from '../utils/file';
 import { resolvePath } from '../utils/path';
-import { convertToOpenAIStrictSchema } from '../utils/schema';
+import { jsonSchemaToGoogleSchema, jsonSchemaToOpenAISchema } from '../utils/schema';
 import { ModelProvider } from './base';
 import {
   calculateTokenCost,
@@ -90,6 +90,7 @@ export class OpenRouterProvider extends ModelProvider {
     text: string,
     schema: any,
     imageBase64s?: string[],
+    ragData?: Record<string, any>,
   ): Promise<{
     json: Record<string, any>;
     usage: Usage;
@@ -103,25 +104,46 @@ export class OpenRouterProvider extends ModelProvider {
         image_url: { url: base64 },
       }));
     }
+    const isOpenAI = this.model.startsWith('openai');
+    const isGoogle = this.model.startsWith('google');
+    const isDeepseek = this.model.includes('deepseek');
+
+    const newSchema = isOpenAI
+      ? jsonSchemaToOpenAISchema(schema)
+      : isGoogle
+        ? jsonSchemaToGoogleSchema(schema)
+        : schema;
     const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: JSON_EXTRACTION_SYSTEM_PROMPT },
+      {
+        role: 'system',
+        content: [
+          JSON_EXTRACTION_SYSTEM_PROMPT,
+          ragData
+            ? `Here are some similar bookings from the past years: \n${JSON.stringify(ragData)}`
+            : '',
+        ].join('\n\n'),
+      },
       {
         role: 'user',
-        content: [{ type: 'text', text } as const, ...imageMessages],
+        content: [
+          { type: 'text', text } as const,
+          ...imageMessages,
+          isDeepseek
+            ? `\n\nIMPORTANT: give the output in a valid JSON string (it should be not be wrapped in markdown, just plain json object) and stick to the schema mentioned here: ${JSON.stringify(newSchema)}.`
+            : '',
+        ],
       },
     ];
-
-    const strictSchema = convertToOpenAIStrictSchema(schema);
 
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages,
       response_format: {
-        type: 'json_schema',
+        type: isDeepseek ? 'json_object' : 'json_schema',
         json_schema: {
           name: 'extraction',
-          strict: true,
-          schema: strictSchema,
+          strict: isOpenAI,
+          schema: newSchema,
         },
       },
     });
@@ -162,10 +184,23 @@ export class OpenRouterProvider extends ModelProvider {
     const image = imagePath.startsWith('http')
       ? imagePath
       : await encodeImageToBase64(resolvePath(imagePath));
+
+    const isOpenAI = this.model.startsWith('openai');
+    const isGoogle = this.model.startsWith('google');
+    const isDeepseek = this.model.includes('deepseek');
+    const newSchema = isOpenAI
+      ? jsonSchemaToOpenAISchema(schema)
+      : isGoogle
+        ? jsonSchemaToGoogleSchema(schema)
+        : schema;
+
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: OCR_SYSTEM_PROMPT + '\n\n' + IMAGE_EXTRACTION_SYSTEM_PROMPT,
+        content:
+          OCR_SYSTEM_PROMPT + '\n\n' + IMAGE_EXTRACTION_SYSTEM_PROMPT + isDeepseek
+            ? '\n\n' + JSON.stringify(newSchema, null, 2)
+            : '',
       },
       {
         role: 'user',
@@ -180,21 +215,19 @@ export class OpenRouterProvider extends ModelProvider {
       },
     ];
 
-    const strictSchema = convertToOpenAIStrictSchema(schema);
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages,
       response_format: {
-        type: 'json_schema',
+        type: isDeepseek ? 'json_object' : 'json_schema',
         json_schema: {
           name: 'extraction',
-          strict: true,
-          schema: strictSchema,
+          strict: isOpenAI,
+          schema: newSchema,
         },
       },
     });
 
-    console.log(response);
     const end = performance.now();
     const inputTokens = response.usage?.prompt_tokens || 0;
     const outputTokens = response.usage?.completion_tokens || 0;

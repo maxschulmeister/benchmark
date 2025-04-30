@@ -1,11 +1,19 @@
-import { JSONSchema7Definition } from '@ai-sdk/provider';
+import type { JSONSchema7Definition } from 'json-schema';
+import type { OpenAPIV3 } from 'openapi-types';
+
+function isEmptyObjectSchema(jsonSchema: JSONSchema7Definition): boolean {
+  return (
+    jsonSchema != null &&
+    typeof jsonSchema === 'object' &&
+    jsonSchema.type === 'object' &&
+    (jsonSchema.properties == null || Object.keys(jsonSchema.properties).length === 0)
+  );
+}
 
 /**
  * Converts JSON Schema 7 to OpenAPI Schema 3.0
  */
-export function convertJSONSchemaToOpenAPISchema(
-  jsonSchema: JSONSchema7Definition,
-): unknown {
+export function jsonSchemaToOpenAPISchema(jsonSchema: JSONSchema7Definition): unknown {
   // parameters need to be undefined if they are empty objects:
   if (isEmptyObjectSchema(jsonSchema)) {
     return undefined;
@@ -71,7 +79,7 @@ export function convertJSONSchemaToOpenAPISchema(
   if (properties != null) {
     result.properties = Object.entries(properties).reduce(
       (acc, [key, value]) => {
-        acc[key] = convertJSONSchemaToOpenAPISchema(value);
+        acc[key] = jsonSchemaToOpenAPISchema(value);
         return acc;
       },
       {} as Record<string, unknown>,
@@ -80,12 +88,12 @@ export function convertJSONSchemaToOpenAPISchema(
 
   if (items) {
     result.items = Array.isArray(items)
-      ? items.map(convertJSONSchemaToOpenAPISchema)
-      : convertJSONSchemaToOpenAPISchema(items);
+      ? items.map(jsonSchemaToOpenAPISchema)
+      : jsonSchemaToOpenAPISchema(items);
   }
 
   if (allOf) {
-    result.allOf = allOf.map(convertJSONSchemaToOpenAPISchema);
+    result.allOf = allOf.map(jsonSchemaToOpenAPISchema);
   }
   if (anyOf) {
     // Handle cases where anyOf includes a null type
@@ -96,22 +104,22 @@ export function convertJSONSchemaToOpenAPISchema(
 
       if (nonNullSchemas.length === 1) {
         // If there's only one non-null schema, convert it and make it nullable
-        const converted = convertJSONSchemaToOpenAPISchema(nonNullSchemas[0]);
+        const converted = jsonSchemaToOpenAPISchema(nonNullSchemas[0]);
         if (typeof converted === 'object') {
           result.nullable = true;
           Object.assign(result, converted);
         }
       } else {
         // If there are multiple non-null schemas, keep them in anyOf
-        result.anyOf = nonNullSchemas.map(convertJSONSchemaToOpenAPISchema);
+        result.anyOf = nonNullSchemas.map(jsonSchemaToOpenAPISchema);
         result.nullable = true;
       }
     } else {
-      result.anyOf = anyOf.map(convertJSONSchemaToOpenAPISchema);
+      result.anyOf = anyOf.map(jsonSchemaToOpenAPISchema);
     }
   }
   if (oneOf) {
-    result.oneOf = oneOf.map(convertJSONSchemaToOpenAPISchema);
+    result.oneOf = oneOf.map(jsonSchemaToOpenAPISchema);
   }
 
   if (minLength !== undefined) {
@@ -121,25 +129,13 @@ export function convertJSONSchemaToOpenAPISchema(
   return result;
 }
 
-function isEmptyObjectSchema(jsonSchema: JSONSchema7Definition): boolean {
-  return (
-    jsonSchema != null &&
-    typeof jsonSchema === 'object' &&
-    jsonSchema.type === 'object' &&
-    (jsonSchema.properties == null || Object.keys(jsonSchema.properties).length === 0)
-  );
-}
-
 /**
- * Deeply converts a standard JSON Schema to a valid OpenAI strict schema.
- * - All object properties are required
- * - additionalProperties is set to false
- * - Recurses through all nested objects, arrays, combinators, and definitions
- *
- * @param schema Standard JSON Schema
- * @returns OpenAI strict schema
+ * Converts JSON Schema 7 to a OpenAI strict schema.
  */
-export function convertToOpenAIStrictSchema(schema: any): any {
+
+export function jsonSchemaToOpenAISchema(
+  schema: JSONSchema7Definition,
+): JSONSchema7Definition {
   if (typeof schema !== 'object' || schema === null) return schema;
   if (typeof schema === 'boolean') return schema;
 
@@ -176,10 +172,10 @@ export function convertToOpenAIStrictSchema(schema: any): any {
   let description = schema.description || '';
   for (const key of Object.keys(schema)) {
     if (supportedFields.has(key)) {
-      supported[key] = schema[key];
+      supported[key] = (schema as any)[key];
     } else {
       // Append unsupported field to description
-      const value = schema[key];
+      const value = (schema as any)[key];
       const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
       description = description
         ? `${description} ${key}: ${valueStr}`
@@ -191,7 +187,7 @@ export function convertToOpenAIStrictSchema(schema: any): any {
   }
 
   // Helper to process sub-schemas
-  const process = (sub: any) => convertToOpenAIStrictSchema(sub);
+  const process = (sub: any) => jsonSchemaToOpenAISchema(sub);
 
   // Handle arrays
   if (supported.type === 'array' && supported.items) {
@@ -283,4 +279,69 @@ export function convertToOpenAIStrictSchema(schema: any): any {
   }
 
   return result;
+}
+
+/**
+ * Converts JSON Schema 7 to a Gemini-compatible schema for Google Gemini API.
+ * Only includes supported fields and ensures propertyOrdering for objects.
+ */
+export function jsonSchemaToGoogleSchema(
+  jsonSchema: JSONSchema7Definition,
+): OpenAPIV3.SchemaObject {
+  const openApiSchema = jsonSchemaToOpenAPISchema(jsonSchema);
+  return openApiSchemaToGoogleSchema(openApiSchema as OpenAPIV3.SchemaObject);
+}
+
+/**
+ * Converts an OpenAPI schema (from jsonSchemaToOpenAPISchema) to a Gemini-compatible schema for Google Gemini API.
+ * Only includes supported fields and ensures propertyOrdering for objects.
+ */
+export function openApiSchemaToGoogleSchema(
+  openApiSchema: OpenAPIV3.SchemaObject,
+): OpenAPIV3.SchemaObject {
+  if (typeof openApiSchema !== 'object' || openApiSchema === null) return openApiSchema;
+
+  // Supported Gemini fields
+  const supportedFields = [
+    'type',
+    'format',
+    'description',
+    'nullable',
+    'enum',
+    'maxItems',
+    'minItems',
+    'properties',
+    'required',
+    'propertyOrdering',
+    'items',
+  ];
+
+  const result: Record<string, any> = {};
+
+  for (const key of supportedFields) {
+    if ((openApiSchema as any)[key] !== undefined) {
+      result[key] = (openApiSchema as any)[key];
+    }
+  }
+
+  // Recursively process properties for objects
+  if (result.type === 'object' && result.properties) {
+    const propertyOrdering: string[] = [];
+    for (const key of Object.keys(result.properties)) {
+      result.properties[key] = openApiSchemaToGoogleSchema(result.properties[key]);
+      propertyOrdering.push(key);
+    }
+    result.propertyOrdering = propertyOrdering;
+  }
+
+  // Recursively process items for arrays
+  if (result.type === 'array' && result.items) {
+    if (Array.isArray(result.items)) {
+      result.items = result.items.map(openApiSchemaToGoogleSchema);
+    } else {
+      result.items = openApiSchemaToGoogleSchema(result.items);
+    }
+  }
+
+  return result as OpenAPIV3.SchemaObject;
 }

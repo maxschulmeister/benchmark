@@ -4,7 +4,7 @@ import fs from 'fs';
 import yaml from 'js-yaml';
 import { isEmpty } from 'lodash';
 import moment from 'moment';
-import pLimit from 'p-limit';
+import PQueue from 'p-queue';
 import path from 'path';
 
 import { BenchmarkRun } from '@prisma/client';
@@ -20,7 +20,6 @@ import {
   saveResult,
   writeToFile,
 } from './utils';
-
 dotenv.config();
 
 /* -------------------------------------------------------------------------- */
@@ -97,6 +96,16 @@ const withTimeout = async (promise: Promise<any>, operation: string) => {
 const timestamp = moment(new Date()).format('YYYY-MM-DD-HH-mm-ss');
 const resultFolder = createResultFolder(timestamp);
 
+const DELAY = 30000; // 30 seconds
+
+let lastStart = 0;
+const delayBetweenStarts = async () => {
+  const now = Date.now();
+  const wait = Math.max(0, lastStart + DELAY - now);
+  lastStart = now + wait;
+  if (wait > 0) await new Promise((res) => setTimeout(res, wait));
+};
+
 const runBenchmark = async () => {
   const data = DATABASE_URL ? await loadFromDb() : loadLocalData(DATA_FOLDER);
   const results: Result[] = [];
@@ -132,13 +141,22 @@ const runBenchmark = async () => {
     async ({ ocr: ocrModel, extraction: extractionModel, directImageExtraction }) => {
       // Calculate concurrent requests based on rate limit
       const concurrency = Math.min(
-        MODEL_CONCURRENCY[ocrModel as keyof typeof MODEL_CONCURRENCY] ?? 20,
-        MODEL_CONCURRENCY[extractionModel as keyof typeof MODEL_CONCURRENCY] ?? 20,
+        MODEL_CONCURRENCY[ocrModel as keyof typeof MODEL_CONCURRENCY] ?? 10,
+        MODEL_CONCURRENCY[extractionModel as keyof typeof MODEL_CONCURRENCY] ?? 10,
       );
-      const limit = pLimit(concurrency);
+      // Use PQueue for concurrency and interval control
+      const CONCURRENCY_DELAY = 5000;
+
+      let lastStart = 0;
+      const queue = new PQueue({
+        concurrency,
+        interval: CONCURRENCY_DELAY,
+        intervalCap: 1,
+      });
 
       const promises = data.map((item) =>
-        limit(async () => {
+        queue.add(async () => {
+          await delayBetweenStarts();
           const ocrModelProvider = getModelProvider(ocrModel);
           const extractionModelProvider = extractionModel
             ? getModelProvider(extractionModel)
@@ -164,7 +182,7 @@ const runBenchmark = async () => {
             usage: undefined,
           };
 
-          const isZerox = ocrModelProvider?.model.includes('zerox:');
+          const isZerox = ocrModelProvider?.model.startsWith('zerox:');
           try {
             if (directImageExtraction) {
               const extractionResult = await withTimeout(
@@ -204,6 +222,7 @@ const runBenchmark = async () => {
                     item.jsonSchema,
                     ocrResult?.imageBase64s,
                     isZerox ? item.imageUrl : undefined,
+                    item.rag,
                   ),
                   `JSON extraction: ${extractionModel}`,
                 );
@@ -242,6 +261,8 @@ const runBenchmark = async () => {
               const jsonAccuracyResult = calculateJsonAccuracy(
                 item.trueJsonOutput,
                 result.predictedJson,
+                false,
+                true,
               );
               result.jsonAccuracy = jsonAccuracyResult.score;
               result.jsonDiff = jsonAccuracyResult.jsonDiff;
@@ -270,9 +291,12 @@ const runBenchmark = async () => {
       );
 
       // Process items concurrently for this model
-      const modelResults = await Promise.all(promises);
-
-      results.push(...modelResults);
+      const modelResults = await Promise.allSettled(promises);
+      for (const r of modelResults) {
+        if (r.status === 'fulfilled' && r.value) {
+          results.push(r.value);
+        }
+      }
     },
   );
 

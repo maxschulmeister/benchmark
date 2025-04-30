@@ -1,4 +1,4 @@
-import { zerox } from 'zerox';
+import { zerox } from 'zerox/node-zerox/dist';
 import {
   ZeroxArgs,
   ModelProvider as ZeroxModelProvider,
@@ -28,10 +28,8 @@ export class ZeroxProvider extends ModelProvider {
       },
       modelProvider: ZeroxModelProvider.OPENROUTER,
       model: this.model.replace('zerox:', ''),
+      correctOrientation: false,
       maxRetries: 3,
-      llmParams: {
-        temperature: 0,
-      },
       prompt: OCR_SYSTEM_PROMPT,
     };
   }
@@ -41,6 +39,7 @@ export class ZeroxProvider extends ModelProvider {
     schema: any,
     imageBase64s?: string[],
     imagePath?: string,
+    ragData?: Record<string, any>,
   ): Promise<{
     text: string;
     json: Record<string, any>;
@@ -53,7 +52,12 @@ export class ZeroxProvider extends ModelProvider {
       filePath: resolvePath(imagePath),
       directImageExtraction: true,
       schema,
-      extractionPrompt: JSON_EXTRACTION_SYSTEM_PROMPT,
+      extractionPrompt: [
+        JSON_EXTRACTION_SYSTEM_PROMPT,
+        ragData
+          ? `Here are some similar bookings from the past years: \n${JSON.stringify(ragData)}`
+          : '',
+      ].join('\n\n'),
     });
 
     const endTime = performance.now();
@@ -70,6 +74,7 @@ export class ZeroxProvider extends ModelProvider {
       outputCost,
       totalCost: inputCost + outputCost,
     };
+
     return {
       text: result.pages
         .map((page) => page.content || '')

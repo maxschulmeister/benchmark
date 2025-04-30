@@ -33,12 +33,35 @@ export const calculateJsonAccuracy = (
   actual: Record<string, any>,
   predicted: Record<string, any>,
   ignoreCases: boolean = false,
+  treatNullAndEmptyStringAsEqual: boolean = false,
 ): AccuracyResult => {
+  // Optionally normalize null and empty string
+  const normalizeNullAndEmpty = (obj: any): any => {
+    if (obj === null) return '';
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(normalizeNullAndEmpty);
+    const result: Record<string, any> = {};
+    for (const key in obj) {
+      result[key] = normalizeNullAndEmpty(obj[key]);
+    }
+    return result;
+  };
+
+  let processedActual = actual;
+  let processedPredicted = predicted;
+
+  if (treatNullAndEmptyStringAsEqual) {
+    processedActual = normalizeNullAndEmpty(processedActual);
+    processedPredicted = normalizeNullAndEmpty(processedPredicted);
+  }
+
   // Convert strings to uppercase if ignoreCases is true
-  const processedActual = ignoreCases ? convertStringsToUppercase(actual) : actual;
-  const processedPredicted = ignoreCases
-    ? convertStringsToUppercase(predicted)
-    : predicted;
+  processedActual = ignoreCases
+    ? convertStringsToUppercase(processedActual)
+    : processedActual;
+  processedPredicted = ignoreCases
+    ? convertStringsToUppercase(processedPredicted)
+    : processedPredicted;
 
   // Get the diff result
   const fullDiffResult = diff(processedActual, processedPredicted, {

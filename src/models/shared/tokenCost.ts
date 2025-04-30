@@ -178,9 +178,29 @@ export const TOKEN_COST = (() => {
       input: 1.25,
       output: 10,
     },
+    'x-ai/grok-3-mini-beta': {
+      input: 0.3,
+      output: 0.5,
+    },
+    'google/gemini-2.5-flash-preview': {
+      input: 0.15,
+      output: 0.6,
+    },
+    'google/gemini-2.5-flash-preview:thinking': {
+      input: 0.15,
+      output: 3.5,
+    },
     'openai/gpt-4o-2024-11-20': {
       input: 2.5,
       output: 10,
+    },
+    'tngtech/deepseek-r1t-chimera:free': {
+      input: 0,
+      output: 0,
+    },
+    'qwen/qwen3-235b-a22b': {
+      input: 0.2,
+      output: 0.6,
     },
   };
 

@@ -1,12 +1,12 @@
-import { Usage } from './model';
 import { AccuracyResult } from '../evaluation';
-
+import { Usage } from './model';
 export interface Input {
   imageUrl: string;
   metadata: Metadata;
   jsonSchema: JsonSchema;
   trueJsonOutput: Record<string, any>;
   trueMarkdownOutput: string;
+  rag?: Record<string, any>;
 }
 
 export interface Metadata {

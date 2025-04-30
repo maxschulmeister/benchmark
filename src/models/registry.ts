@@ -59,7 +59,12 @@ export const OPENROUTER_MODELS = [
   'openai/gpt-4.1',
   'openai/o4-mini-high',
   'google/gemini-2.5-pro-preview-03-25',
+  'google/gemini-2.5-flash-preview',
+  'google/gemini-2.5-flash-preview:thinking',
   'openai/gpt-4o-2024-11-20',
+  'x-ai/grok-3-mini-beta',
+  'tngtech/deepseek-r1t-chimera:free',
+  'qwen/qwen3-235b-a22b',
 ];
 export const TOGETHER_MODELS = [
   'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
