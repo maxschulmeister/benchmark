@@ -9,6 +9,7 @@ from utils.data_loader import (
     load_one_result,
 )
 from utils.style import SIDEBAR_STYLE
+import os
 
 
 st.set_page_config(page_title="Test Results", layout="wide")
@@ -187,13 +188,51 @@ def main():
         st.warning("No test cases have JSON differences for this run.")
         return
 
-    # 3. Build the dropdown items from only those filtered test cases
+    # 3. Add filter bar for filename, OCR model, and extraction model
+    # Gather unique filter options
+    def get_filename(test):
+        url = test.get('fileUrl', None)
+        if url:
+            return os.path.basename(url)
+        return 'Unknown'
+    unique_filenames = sorted({get_filename(test) for test in results_with_diffs})
+    unique_ocr_models = sorted({test.get('ocrModel', 'Unknown') for test in results_with_diffs})
+    unique_extraction_models = sorted({test.get('extractionModel', 'Unknown') for test in results_with_diffs})
+
+    with st.expander('Filter Test Cases', expanded=False):
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        with filter_col1:
+            selected_filenames = st.multiselect(
+                'Document Filename', unique_filenames, default=unique_filenames
+            )
+        with filter_col2:
+            selected_ocr_models = st.multiselect(
+                'OCR Model', unique_ocr_models, default=unique_ocr_models
+            )
+        with filter_col3:
+            selected_extraction_models = st.multiselect(
+                'Extraction Model', unique_extraction_models, default=unique_extraction_models
+            )
+
+    # Filter results_with_diffs based on selections
+    filtered_results = [
+        test for test in results_with_diffs
+        if get_filename(test) in selected_filenames
+        and test.get('ocrModel', 'Unknown') in selected_ocr_models
+        and test.get('extractionModel', 'Unknown') in selected_extraction_models
+    ]
+
+    if not filtered_results:
+        st.warning('No test cases match the selected filters.')
+        return
+
+    # 4. Build the dropdown items from only those filtered test cases
     test_case_labels = {
-        f"{test['id']}": idx for idx, test in enumerate(results_with_diffs)
+        f"{test['id']}": idx for idx, test in enumerate(filtered_results)
     }
 
-    # Initialize session state for selected index if it doesn't exist
-    if "selected_test_idx" not in st.session_state:
+    # Adjust session state if out of bounds
+    if 'selected_test_idx' not in st.session_state or st.session_state.selected_test_idx >= len(filtered_results):
         st.session_state.selected_test_idx = 0
 
     with col2:
@@ -203,7 +242,7 @@ def main():
         with dropdown_col:
             # Update session state when dropdown changes
             selected_test_id = st.selectbox(
-                "Select Test Case (Only Cases with Differences)",
+                'Select Test Case (Filtered)',
                 options=list(test_case_labels.keys()),
                 format_func=lambda x: f"{x}",
                 index=st.session_state.selected_test_idx,
@@ -216,7 +255,7 @@ def main():
                 unsafe_allow_html=True,
             )
             # Add navigation buttons
-            if st.button("←"):
+            if st.button('←'):
                 if st.session_state.selected_test_idx > 0:
                     st.session_state.selected_test_idx -= 1
                     st.rerun()
@@ -226,30 +265,30 @@ def main():
                 '<div style="display: flex; justify-content: center; align-items: center;">',
                 unsafe_allow_html=True,
             )
-            if st.button("→"):
-                if st.session_state.selected_test_idx < len(results_with_diffs) - 1:
+            if st.button('→'):
+                if st.session_state.selected_test_idx < len(filtered_results) - 1:
                     st.session_state.selected_test_idx += 1
                     st.rerun()
 
-    # 4. Load only the selected test case
-    selected_result_id = results_with_diffs[st.session_state.selected_test_idx]["id"]
+    # 5. Load only the selected test case
+    selected_result_id = filtered_results[st.session_state.selected_test_idx]['id']
     detailed_data = load_one_result(selected_timestamp, selected_result_id)
-    test_case = detailed_data["result"]
+    test_case = detailed_data['result']
 
     # Display run metadata if available
-    if detailed_data.get("description") or detailed_data.get("run_by"):
-        with st.expander("Run Details", expanded=False):
+    if detailed_data.get('description') or detailed_data.get('run_by'):
+        with st.expander('Run Details', expanded=False):
             cols = st.columns(3)
             with cols[0]:
                 st.markdown(f"**Status:** {detailed_data['status'].title()}")
-                if detailed_data.get("run_by"):
+                if detailed_data.get('run_by'):
                     st.markdown(f"**Run By:** {detailed_data['run_by']}")
             with cols[1]:
                 st.markdown(f"**Created:** {detailed_data['created_at']}")
-                if detailed_data.get("completed_at"):
+                if detailed_data.get('completed_at'):
                     st.markdown(f"**Completed:** {detailed_data['completed_at']}")
             with cols[2]:
-                if detailed_data.get("description"):
+                if detailed_data.get('description'):
                     st.markdown(f"**Description:** {detailed_data['description']}")
 
     # Display file URL
@@ -267,7 +306,7 @@ def main():
         display_json_diff(test_case, right_col)
 
     # Display markdown diff at the bottom
-    st.markdown("---")  # Add a separator
+    st.markdown('---')  # Add a separator
     display_markdown_diff(test_case)
 
 
