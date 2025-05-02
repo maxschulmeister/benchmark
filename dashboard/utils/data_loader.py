@@ -320,7 +320,8 @@ def load_one_result(timestamp: str, id: str) -> Dict[str, Any]:
 
 
 def format_timestamp(timestamp: str) -> str:
-    """Convert timestamp string to readable format"""
-    return datetime.strptime(timestamp, "%Y-%m-%d-%H-%M-%S").strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    """Convert timestamp string to readable format, or return as-is if not a timestamp."""
+    try:
+        return datetime.strptime(timestamp, "%Y-%m-%d-%H-%M-%S").strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return timestamp

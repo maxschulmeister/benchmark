@@ -3,7 +3,7 @@ from datetime import datetime
 import plotly.express as px
 import pandas as pd
 
-from utils.data_loader import load_run_list, load_results_for_run
+from utils.data_loader import load_run_list, load_results_for_run, format_timestamp
 from utils.style import SIDEBAR_STYLE
 
 st.set_page_config(page_title="Performance Metrics")
@@ -203,9 +203,7 @@ def main():
         selected_timestamp = st.selectbox(
             "Select Test Run",
             [run["timestamp"] for run in runs],
-            format_func=lambda x: datetime.strptime(x, "%Y-%m-%d-%H-%M-%S").strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
+            format_func=format_timestamp,
         )
 
     # Load the detailed results only when a run is selected
