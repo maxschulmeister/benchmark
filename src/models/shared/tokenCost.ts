@@ -182,6 +182,10 @@ export const TOKEN_COST = (() => {
       input: 0.3,
       output: 0.5,
     },
+    'google/gemini-2.0-flash-001': {
+      input: 0.1,
+      output: 0.4,
+    },
     'google/gemini-2.5-flash-preview': {
       input: 0.15,
       output: 0.6,
@@ -198,9 +202,45 @@ export const TOKEN_COST = (() => {
       input: 0,
       output: 0,
     },
+    'nvidia/llama-3.1-nemotron-ultra-253b-v1:free': {
+      input: 0,
+      output: 0,
+    },
     'qwen/qwen3-235b-a22b': {
-      input: 0.2,
-      output: 0.6,
+      input: 0.1,
+      output: 0.1,
+    },
+    'microsoft/phi-4-reasoning-plus': {
+      input: 0,
+      output: 0,
+    },
+    'qwen/qwen3-14b': {
+      input: 0.07,
+      output: 0.24,
+    },
+    'qwen/qwen3-32b': {
+      input: 0.1,
+      output: 0.3,
+    },
+    'qwen/qwen2.5-vl-32b-instruct': {
+      input: 0.9,
+      output: 0.9,
+    },
+    'qwen/qwen2.5-vl-72b-instruct': {
+      input: 0.25,
+      output: 0.75,
+    },
+    'qwen/qwen-vl-plus': {
+      input: 0.21,
+      output: 0.63,
+    },
+    'qwen/qwen-vl-max': {
+      input: 0.8,
+      output: 3.2,
+    },
+    'opengvlab/internvl3-14b:free': {
+      input: 0,
+      output: 0,
     },
   };
 

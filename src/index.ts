@@ -96,7 +96,7 @@ const withTimeout = async (promise: Promise<any>, operation: string) => {
 const timestamp = moment(new Date()).format('YYYY-MM-DD-HH-mm-ss');
 const resultFolder = createResultFolder(timestamp);
 
-const DELAY = 30000; // 30 seconds
+const DELAY = 5000; // 5 seconds
 
 let lastStart = 0;
 const delayBetweenStarts = async () => {
@@ -141,17 +141,12 @@ const runBenchmark = async () => {
     async ({ ocr: ocrModel, extraction: extractionModel, directImageExtraction }) => {
       // Calculate concurrent requests based on rate limit
       const concurrency = Math.min(
-        MODEL_CONCURRENCY[ocrModel as keyof typeof MODEL_CONCURRENCY] ?? 10,
-        MODEL_CONCURRENCY[extractionModel as keyof typeof MODEL_CONCURRENCY] ?? 10,
+        MODEL_CONCURRENCY[ocrModel as keyof typeof MODEL_CONCURRENCY] ?? 20,
+        MODEL_CONCURRENCY[extractionModel as keyof typeof MODEL_CONCURRENCY] ?? 20,
       );
-      // Use PQueue for concurrency and interval control
-      const CONCURRENCY_DELAY = 5000;
-
-      let lastStart = 0;
+      // Use PQueue for concurrency only (no interval)
       const queue = new PQueue({
         concurrency,
-        interval: CONCURRENCY_DELAY,
-        intervalCap: 1,
       });
 
       const promises = data.map((item) =>
@@ -182,7 +177,9 @@ const runBenchmark = async () => {
             usage: undefined,
           };
 
-          const isZerox = ocrModelProvider?.model.startsWith('zerox:');
+          const isZerox =
+            ocrModelProvider?.model.startsWith('zerox:') ||
+            extractionModelProvider?.model.startsWith('zerox:');
           try {
             if (directImageExtraction) {
               const extractionResult = await withTimeout(
@@ -223,11 +220,26 @@ const runBenchmark = async () => {
                     ocrResult?.imageBase64s,
                     isZerox ? item.imageUrl : undefined,
                     item.rag,
+                    ocrModel,
                   ),
                   `JSON extraction: ${extractionModel}`,
                 );
                 if (extractionResult.text) {
                   result.predictedMarkdown = extractionResult.text;
+                }
+
+                // Replace Accounts with RAG Majority Result
+                if (extractionResult.json?.amounts?.length > 0 && item.rag?.majority) {
+                  extractionResult.json.amounts = extractionResult.json.amounts.map(
+                    (amount) => ({
+                      ...amount,
+                      costaccount:
+                        item.rag.majority.costaccount?.id || amount.costaccount,
+                      purchasetaxaccount:
+                        item.rag.majority.purchasetaxaccount?.id ||
+                        amount.purchasetaxaccount,
+                    }),
+                  );
                 }
                 result.predictedJson = extractionResult.json;
 

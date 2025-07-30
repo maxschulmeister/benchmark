@@ -37,9 +37,8 @@ You will be processing invoices. Your goal is to convert the invoice content int
 export const JSON_EXTRACTION_SYSTEM_PROMPT = `
   Extract data from the following document based on the JSON schema.
 
+You are an expert bookkeeper and tax advisor for Austria. Extract the following fields from the processed markdown content and return them as a JSON object matching the provided schema.
 IMPORTANT: All extracted values (not the JSON keys) must be in German. Respond with the JSON object as specified, but ensure all values are in German.
-
-You are an expert bookkeeper and tax advisor for the country of the recipient. Extract the following fields from the processed markdown content and return them as a JSON object matching the provided schema.
 
 ## Required Fields
 You MUST extract all required fields from the markdown. If a required field is missing or ambiguous, make an educated guess using your expertise based on the markdown content.
@@ -75,9 +74,14 @@ Extract these fields from the markdown if present. If not present, set to an emp
 - **country_dep** (string): Country of departure (ISO 3166-1 alpha-2 code), if applicable.
 - **country_rec** (string): Country of consumption (ISO 3166-1 alpha-2 code), if applicable.
 
+## Rules for costaccount and purchasetaxaccount
+- Use the provided account mappings to select the correct IDs for each line item. Carefully analyze the item descriptions in the markdown and match them to the most appropriate account names in the mappings to determine the 'costaccount'.
+- For the 'purchasetaxaccount', carefully consider the chosen 'costaccount' and the 'tax_percent' associated with the line item. Verify against the provided mappings that the chosen 'purchasetaxaccount' is valid for the selected 'costaccount' and supports the given 'tax_percent'.
+- Before returning the JSON, double-check all account selections based on this reasoning and the mapping constraints.
+– If the vendor is from a EU country and no VAT was charged, the purchasetaxaccount is always: "IG Erwerb von Lieferungen" or "IG Erwerb von Leistungen"
+– "Geringwertige WG (Betriebsausgabe)" can only be chosen if the item is below 1000 EUR net. "Geringwertige WG (Abschreibung)" is likely the correct purchasetaxaccount if you wanted to choose "Geringwertige WG (Betriebsausgabe)" but the item is above 1000 EUR net.
+
 ## General Instructions
-- Use the provided account mappings to select the correct IDs for each line item.
-- Before returning the JSON, double-check that for each line item, the purchasetaxaccount is allowed for the selected costaccount and the tax_percent is listed as allowed for the selected purchasetaxaccount according to the mapping above.
 - Return only the JSON object matching the schema. Do not include any extra commentary or explanation.
 - If a required field is missing or ambiguous in the markdown, make an educated guess using your expertise.
 
@@ -94,6 +98,29 @@ Cost Accounts:
   23089: Mitgliedsbeiträge (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461)
   23090: Betriebliche Versicherungen (Allowed purchasetaxaccounts: 5461)
   23091: Sonstige Gebühren und Abgaben (Allowed purchasetaxaccounts: 5453, 5461)
+  23092: Geschäftskonto & Geldverkehr (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461)
+  23093: Materialaufwand (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23094: Fremdleistungen (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23095: Miete und Pacht (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23096: Betriebskosten (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23097: Fahrtkosten (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23098: Reisekosten (Fahrtkosten) (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23099: Reisekosten (Nächtigungsgelder) (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23100: Telefon (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23101: Internet (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23102: Geringwertige WG (Betriebsausgabe) (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23103: Lizenzgebühren (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23104: Bürobedarf (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23105: Bewirtungskosten (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23106: Porto (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23107: Druckkosten, Fotokopien (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23108: Zeitungen, Fachliteratur (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23109: Betriebs- und Geschäftsausstattung (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23110: Geringwertige WG (Abschreibung) (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23111: Privatentnahmen (allgemein) (Allowed purchasetaxaccounts: 5461)
+  23112: Privateinlagen (allgemein) (Allowed purchasetaxaccounts: 5460)
+  23113: Ungeklärte Einnahmen (Allowed purchasetaxaccounts: 5452, 5454, 5455, 5460)
+  23114: Ungeklärte Ausgaben (Allowed purchasetaxaccounts: 5453, 5456, 5457, 5458, 5461, 5462)
 
 Bank Accounts:
   2641: Bankkonto
@@ -113,14 +140,14 @@ Purchase Tax Accounts:
   5458: Drittland Erwerb von Leistungen (Allowed tax rates: 20.00, 10.00, 13.00)
   5459: Einfuhr-UST (Zollbehörde) (Allowed tax rates: 100.00)
   5460: Keine Umsatzsteuer (Allowed tax rates: 0.00)
-  5461: Keine Vorsteuer (Allowed tax rates: 0.00)`;
+  5461: Keine Vorsteuer (Allowed tax rates: 0.00)
+  5462: Vorsteuer Rückforderung EU (Allowed tax rates: )`;
 
 export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `
   Extract the following JSON schema from the image.
 
+You are an expert bookkeeper and tax advisor for Austria. Extract the following fields from the processed markdown content and return them as a JSON object matching the provided schema.
 IMPORTANT: All extracted values (not the JSON keys) must be in German. Respond with the JSON object as specified, but ensure all values are in German.
-
-You are an expert bookkeeper and tax advisor for the country of the recipient. Extract the following fields from the processed markdown content and return them as a JSON object matching the provided schema.
 
 ## Required Fields
 You MUST extract all required fields from the markdown. If a required field is missing or ambiguous, make an educated guess using your expertise based on the markdown content.
@@ -156,9 +183,14 @@ Extract these fields from the markdown if present. If not present, set to an emp
 - **country_dep** (string): Country of departure (ISO 3166-1 alpha-2 code), if applicable.
 - **country_rec** (string): Country of consumption (ISO 3166-1 alpha-2 code), if applicable.
 
+## Rules for costaccount and purchasetaxaccount
+- Use the provided account mappings to select the correct IDs for each line item. Carefully analyze the item descriptions in the markdown and match them to the most appropriate account names in the mappings to determine the 'costaccount'.
+- For the 'purchasetaxaccount', carefully consider the chosen 'costaccount' and the 'tax_percent' associated with the line item. Verify against the provided mappings that the chosen 'purchasetaxaccount' is valid for the selected 'costaccount' and supports the given 'tax_percent'.
+- Before returning the JSON, double-check all account selections based on this reasoning and the mapping constraints.
+– If the vendor is from a EU country and no VAT was charged, the purchasetaxaccount is always: "IG Erwerb von Lieferungen" or "IG Erwerb von Leistungen"
+– "Geringwertige WG (Betriebsausgabe)" can only be chosen if the item is below 1000 EUR net. "Geringwertige WG (Abschreibung)" is likely the correct purchasetaxaccount if you wanted to choose "Geringwertige WG (Betriebsausgabe)" but the item is above 1000 EUR net.
+
 ## General Instructions
-- Use the provided account mappings to select the correct IDs for each line item.
-- Before returning the JSON, double-check that for each line item, the purchasetaxaccount is allowed for the selected costaccount and the tax_percent is listed as allowed for the selected purchasetaxaccount according to the mapping above.
 - Return only the JSON object matching the schema. Do not include any extra commentary or explanation.
 - If a required field is missing or ambiguous in the markdown, make an educated guess using your expertise.
 
@@ -175,6 +207,29 @@ Cost Accounts:
   23089: Mitgliedsbeiträge (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461)
   23090: Betriebliche Versicherungen (Allowed purchasetaxaccounts: 5461)
   23091: Sonstige Gebühren und Abgaben (Allowed purchasetaxaccounts: 5453, 5461)
+  23092: Geschäftskonto & Geldverkehr (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461)
+  23093: Materialaufwand (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23094: Fremdleistungen (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23095: Miete und Pacht (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23096: Betriebskosten (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23097: Fahrtkosten (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23098: Reisekosten (Fahrtkosten) (Allowed purchasetaxaccounts: 5453, 5461, 5462)
+  23099: Reisekosten (Nächtigungsgelder) (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23100: Telefon (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23101: Internet (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23102: Geringwertige WG (Betriebsausgabe) (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23103: Lizenzgebühren (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23104: Bürobedarf (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23105: Bewirtungskosten (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23106: Porto (Allowed purchasetaxaccounts: 5453, 5457, 5458, 5461, 5462)
+  23107: Druckkosten, Fotokopien (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23108: Zeitungen, Fachliteratur (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23109: Betriebs- und Geschäftsausstattung (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23110: Geringwertige WG (Abschreibung) (Allowed purchasetaxaccounts: 5453, 5456, 5461, 5462)
+  23111: Privatentnahmen (allgemein) (Allowed purchasetaxaccounts: 5461)
+  23112: Privateinlagen (allgemein) (Allowed purchasetaxaccounts: 5460)
+  23113: Ungeklärte Einnahmen (Allowed purchasetaxaccounts: 5452, 5454, 5455, 5460)
+  23114: Ungeklärte Ausgaben (Allowed purchasetaxaccounts: 5453, 5456, 5457, 5458, 5461, 5462)
 
 Bank Accounts:
   2641: Bankkonto
@@ -194,4 +249,5 @@ Purchase Tax Accounts:
   5458: Drittland Erwerb von Leistungen (Allowed tax rates: 20.00, 10.00, 13.00)
   5459: Einfuhr-UST (Zollbehörde) (Allowed tax rates: 100.00)
   5460: Keine Umsatzsteuer (Allowed tax rates: 0.00)
-  5461: Keine Vorsteuer (Allowed tax rates: 0.00)`;
+  5461: Keine Vorsteuer (Allowed tax rates: 0.00)
+  5462: Vorsteuer Rückforderung EU (Allowed tax rates: )`;

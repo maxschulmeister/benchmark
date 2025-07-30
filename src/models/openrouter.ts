@@ -12,7 +12,6 @@ import {
   JSON_EXTRACTION_SYSTEM_PROMPT,
   OCR_SYSTEM_PROMPT,
 } from './shared';
-
 export class OpenRouterProvider extends ModelProvider {
   private client: OpenAI;
 
@@ -90,7 +89,10 @@ export class OpenRouterProvider extends ModelProvider {
     text: string,
     schema: any,
     imageBase64s?: string[],
-    ragData?: Record<string, any>,
+    ragData?: {
+      bookings: Record<string, any>[];
+      majority: Record<string, any>;
+    },
   ): Promise<{
     json: Record<string, any>;
     usage: Usage;
@@ -116,12 +118,7 @@ export class OpenRouterProvider extends ModelProvider {
     const messages: ChatCompletionMessageParam[] = [
       {
         role: 'system',
-        content: [
-          JSON_EXTRACTION_SYSTEM_PROMPT,
-          ragData
-            ? `Here are some similar bookings from the past years: \n${JSON.stringify(ragData)}`
-            : '',
-        ].join('\n\n'),
+        content: JSON_EXTRACTION_SYSTEM_PROMPT,
       },
       {
         role: 'user',
@@ -146,7 +143,15 @@ export class OpenRouterProvider extends ModelProvider {
           schema: newSchema,
         },
       },
+      //@ts-ignore QWEN MODEL PROVIDER IS SHIT
+      provider: this.model.includes('qwen')
+        ? {
+            ignore: ['Fireworks'],
+          }
+        : {},
     });
+
+    console.log(response);
 
     const end = performance.now();
     const inputTokens = response.usage?.prompt_tokens || 0;
@@ -156,7 +161,8 @@ export class OpenRouterProvider extends ModelProvider {
     let json;
     try {
       json = JSON.parse(response.choices[0].message.content || '{}');
-    } catch {
+    } catch (error) {
+      console.error(error);
       json = response.choices[0].message.content || '';
     }
     return {

@@ -58,6 +58,7 @@ export const OPENROUTER_MODELS = [
   'meta-llama/llama-4-scout',
   'openai/gpt-4.1',
   'openai/o4-mini-high',
+  'google/gemini-2.0-flash-001',
   'google/gemini-2.5-pro-preview-03-25',
   'google/gemini-2.5-flash-preview',
   'google/gemini-2.5-flash-preview:thinking',
@@ -65,6 +66,15 @@ export const OPENROUTER_MODELS = [
   'x-ai/grok-3-mini-beta',
   'tngtech/deepseek-r1t-chimera:free',
   'qwen/qwen3-235b-a22b',
+  'nvidia/llama-3.1-nemotron-ultra-253b-v1:free',
+  'microsoft/phi-4-reasoning-plus',
+  'qwen/qwen3-14b',
+  'qwen/qwen3-32b',
+  'qwen/qwen2.5-vl-72b-instruct',
+  'qwen/qwen2.5-vl-32b-instruct',
+  'qwen/qwen-vl-plus',
+  'qwen/qwen-vl-max',
+  'opengvlab/internvl3-14b:free',
 ];
 export const TOGETHER_MODELS = [
   'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',

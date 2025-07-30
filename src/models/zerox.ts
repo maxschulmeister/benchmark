@@ -27,7 +27,6 @@ export class ZeroxProvider extends ModelProvider {
         apiKey: this.apiKey,
       },
       modelProvider: ZeroxModelProvider.OPENROUTER,
-      model: this.model.replace('zerox:', ''),
       correctOrientation: false,
       maxRetries: 3,
       prompt: OCR_SYSTEM_PROMPT,
@@ -39,7 +38,11 @@ export class ZeroxProvider extends ModelProvider {
     schema: any,
     imageBase64s?: string[],
     imagePath?: string,
-    ragData?: Record<string, any>,
+    ragData?: {
+      bookings: Record<string, any>[];
+      majority: Record<string, any>;
+    },
+    ocrModel?: string,
   ): Promise<{
     text: string;
     json: Record<string, any>;
@@ -49,15 +52,11 @@ export class ZeroxProvider extends ModelProvider {
 
     const result = await zerox({
       ...this.zeroxArgs,
+      model: ocrModel.replace('zerox:', ''),
+      extractionModel: this.model.replace('zerox:', ''),
       filePath: resolvePath(imagePath),
-      directImageExtraction: true,
       schema,
-      extractionPrompt: [
-        JSON_EXTRACTION_SYSTEM_PROMPT,
-        ragData
-          ? `Here are some similar bookings from the past years: \n${JSON.stringify(ragData)}`
-          : '',
-      ].join('\n\n'),
+      extractionPrompt: JSON_EXTRACTION_SYSTEM_PROMPT,
     });
 
     const endTime = performance.now();
